@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  scheduler:
+    build: .
+    container_name: claude-session-starter
+    restart: unless-stopped
+    environment:
+      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - MODEL=${MODEL:-claude-haiku-4-5-20251001}
+      - SCHEDULE_TIMES=${SCHEDULE_TIMES:-07:01,12:01,17:01}
+      - TIMEZONE=${TIMEZONE:-Asia/Karachi}
+      - MESSAGE_PROMPT=${MESSAGE_PROMPT:-}
+      - TZ=${TIMEZONE:-Asia/Karachi}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

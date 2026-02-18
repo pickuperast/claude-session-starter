@@ -1,0 +1,160 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  SERVER_USER: "ubuntu"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install SSH key for GitHub Actions Runner
+        uses: shimataro/ssh-key-action@v2.6.0
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: unnecessary
+          key_path: ~/.ssh/id_rsa
+          if_key_exists: replace
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Test SSH connection
+        run: |
+          ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ secrets.SERVER_IP }} "echo 'SSH connection successful'"
+
+      - name: Deploy to server
+        env:
+          GHA_SERVER_IP: ${{ secrets.SERVER_IP }}
+          GHA_GH_TOKEN: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+          GHA_CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GHA_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GHA_MODEL: ${{ secrets.MODEL }}
+          GHA_SCHEDULE_TIMES: ${{ secrets.SCHEDULE_TIMES }}
+          GHA_TIMEZONE: ${{ secrets.TIMEZONE }}
+          GHA_MESSAGE_PROMPT: ${{ secrets.MESSAGE_PROMPT }}
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@$GHA_SERVER_IP \
+            "export REPO_URL='https://github.com/${{ github.repository }}.git' && \
+             export BRANCH_NAME='${{ github.ref_name }}' && \
+             export GH_TOKEN='$GHA_GH_TOKEN' && \
+             export CLAUDE_CODE_OAUTH_TOKEN='$GHA_CLAUDE_CODE_OAUTH_TOKEN' && \
+             export ANTHROPIC_API_KEY='$GHA_ANTHROPIC_API_KEY' && \
+             export MODEL='$GHA_MODEL' && \
+             export SCHEDULE_TIMES='$GHA_SCHEDULE_TIMES' && \
+             export TIMEZONE='$GHA_TIMEZONE' && \
+             export MESSAGE_PROMPT='$GHA_MESSAGE_PROMPT' && \
+             bash -s" << 'DEPLOY_SCRIPT'
+          set -euo pipefail
+
+          PROJECT_DIR="/var/www/${{ github.event.repository.name }}"
+
+          echo "Starting deployment for ${{ github.repository }}..."
+          echo "Project directory: $PROJECT_DIR"
+
+          if [ -d "$PROJECT_DIR/.git" ]; then
+            echo "Project directory exists. Updating repository..."
+            cd "$PROJECT_DIR"
+
+            if ! git diff --quiet || ! git diff --cached --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+              echo "Found uncommitted/untracked changes. Stashing them..."
+              git add -A 2>/dev/null || true
+              git stash push -u -m "Auto-stash before deployment $(date)" 2>/dev/null || {
+                echo "Stash failed, performing hard reset..."
+                git reset --hard HEAD 2>/dev/null || true
+                git clean -fd 2>/dev/null || true
+              }
+            fi
+
+            echo "Pulling latest changes from origin/$BRANCH_NAME..."
+            git fetch origin "$BRANCH_NAME" || git fetch origin
+            git checkout "$BRANCH_NAME" 2>/dev/null || echo "Using current branch"
+            git reset --hard "origin/$BRANCH_NAME" 2>/dev/null || git reset --hard HEAD
+            git clean -fd
+          else
+            echo "Project directory does not exist. Cloning repository..."
+            sudo mkdir -p "$(dirname "$PROJECT_DIR")"
+            sudo chown $USER:$USER "$(dirname "$PROJECT_DIR")"
+            rm -rf "$PROJECT_DIR"
+
+            if [ -n "${GH_TOKEN:-}" ]; then
+              REPO_PATH="${REPO_URL#https://github.com/}"
+              AUTHENTICATED_URL="https://${GH_TOKEN}@github.com/${REPO_PATH}"
+            else
+              AUTHENTICATED_URL="$REPO_URL"
+            fi
+
+            git clone --depth 1 --branch "$BRANCH_NAME" "$AUTHENTICATED_URL" "$PROJECT_DIR" || {
+              echo "Branch-specific clone failed, trying default branch..."
+              git clone --depth 1 "$AUTHENTICATED_URL" "$PROJECT_DIR"
+              cd "$PROJECT_DIR"
+              git checkout "$BRANCH_NAME" 2>/dev/null || echo "Using default branch"
+            }
+
+            cd "$PROJECT_DIR"
+          fi
+
+          echo "Verifying docker-compose.yml exists..."
+          if [ ! -f "docker-compose.yml" ]; then
+            echo "ERROR: docker-compose.yml not found in $(pwd)"
+            ls -la
+            exit 1
+          fi
+
+          if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+            echo "ERROR: CLAUDE_CODE_OAUTH_TOKEN is required."
+            exit 1
+          fi
+
+          echo "Writing deployment environment file..."
+          {
+            echo "CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}"
+            echo "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}"
+            echo "MODEL=${MODEL:-claude-haiku-4-5-20251001}"
+            echo "SCHEDULE_TIMES=${SCHEDULE_TIMES:-07:01,12:01,17:01}"
+            echo "TIMEZONE=${TIMEZONE:-Asia/Karachi}"
+            echo "MESSAGE_PROMPT=${MESSAGE_PROMPT:-}"
+          } > .env
+          chmod 600 .env
+
+          if docker compose version >/dev/null 2>&1; then
+            DC=(docker compose)
+          elif command -v docker-compose >/dev/null 2>&1; then
+            DC=(docker-compose)
+          else
+            echo "ERROR: docker compose is not installed on server."
+            exit 1
+          fi
+
+          echo "Stopping existing services..."
+          "${DC[@]}" down --remove-orphans 2>/dev/null || true
+
+          echo "Building and starting services with docker compose..."
+          "${DC[@]}" up -d --build --force-recreate
+
+          echo "Cleaning up old Docker images..."
+          docker image prune -f
+
+          echo "Deployment completed successfully."
+          echo "Current running containers:"
+          "${DC[@]}" ps
+
+          echo "Waiting 10 seconds for container to start..."
+          sleep 10
+
+          echo "Container logs:"
+          "${DC[@]}" logs --tail 50 scheduler || true
+          DEPLOY_SCRIPT
