@@ -23,7 +23,7 @@ Or navigate to: `C:\Users\YourUsername\.config\claude\config.json`
 The file looks like this:
 ```json
 {
-  "access_token": "sk-ant-api03-your-long-token-here...",
+  "access_token": "<your_access_token_here>",
   "expires_at": "2027-02-18T00:00:00Z",
   "account": {
     "email": "your.email@example.com"
@@ -33,13 +33,13 @@ The file looks like this:
 
 ### Step 3: Copy the Token
 
-Copy the entire `access_token` value (the long string starting with `sk-ant-`)
+Copy the entire `access_token` value
 
 ### Step 4: Add to .env
 
 Paste it into your `.env` file:
 ```bash
-CLAUDE_CODE_OAUTH_TOKEN=sk-ant-api03-your-long-token-here...
+CLAUDE_CODE_OAUTH_TOKEN=<your_access_token_here>
 ```
 
 **That's it!** No mitmproxy, no refresh tokens needed.

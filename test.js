@@ -7,9 +7,9 @@ console.log('='.repeat(50));
 console.log('');
 
 // Check authentication
-if (!process.env.CLAUDE_CODE_OAUTH_TOKEN && !process.env.ANTHROPIC_API_KEY) {
+if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) {
   console.error('❌ ERROR: No authentication credentials found!');
-  console.error('Please set CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY in .env');
+  console.error('Please set CLAUDE_CODE_OAUTH_TOKEN in .env');
   console.error('\nSetup:');
   console.error('  1. Run: claude setup-token');
   console.error('  2. Copy token to .env file');
@@ -57,7 +57,6 @@ try {
     console.error('💡 Troubleshooting:');
     console.error('  1. Verify your token: claude setup-token');
     console.error('  2. Check .env file has CLAUDE_CODE_OAUTH_TOKEN set');
-    console.error('  3. Or use ANTHROPIC_API_KEY from console.anthropic.com');
   }
   
   console.log('');

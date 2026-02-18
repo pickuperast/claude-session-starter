@@ -113,7 +113,7 @@ Now you can use your extracted tokens to make API calls just like with regular C
 # Simple curl example
 curl -X POST https://api.anthropic.com/v1/messages \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk-ant-oat01-your-access-token-here" \
+  -H "Authorization: Bearer <your_access_token_here>" \
   -H "anthropic-version: 2023-06-01" \
   -d '{
     "model": "claude-3-haiku-20240307",
@@ -133,7 +133,7 @@ curl -X POST https://console.anthropic.com/api/oauth/token \
   -H "Content-Type: application/json" \
   -d '{
     "grant_type": "refresh_token",
-    "refresh_token": "sk-ant-ort01-your-refresh-token-here",
+    "refresh_token": "<your_refresh_token_here>",
     "client_id": "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
   }'
 client_id being used here is the official client_id being used for Claude Code CLI. It might be changed if Claude Code got updated.
