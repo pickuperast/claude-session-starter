@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  SERVER_USER: "ubuntu"
+  SERVER_USER: ${{ secrets.SERVER_USER || 'ubuntu' }}
 
 jobs:
   deploy:
@@ -41,7 +41,6 @@ jobs:
           GHA_SERVER_IP: ${{ secrets.SERVER_IP }}
           GHA_GH_TOKEN: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
           GHA_CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          GHA_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GHA_MODEL: ${{ secrets.MODEL }}
           GHA_SCHEDULE_TIMES: ${{ secrets.SCHEDULE_TIMES }}
           GHA_TIMEZONE: ${{ secrets.TIMEZONE }}
@@ -52,7 +51,6 @@ jobs:
              export BRANCH_NAME='${{ github.ref_name }}' && \
              export GH_TOKEN='$GHA_GH_TOKEN' && \
              export CLAUDE_CODE_OAUTH_TOKEN='$GHA_CLAUDE_CODE_OAUTH_TOKEN' && \
-             export ANTHROPIC_API_KEY='$GHA_ANTHROPIC_API_KEY' && \
              export MODEL='$GHA_MODEL' && \
              export SCHEDULE_TIMES='$GHA_SCHEDULE_TIMES' && \
              export TIMEZONE='$GHA_TIMEZONE' && \
@@ -122,7 +120,6 @@ jobs:
           echo "Writing deployment environment file..."
           {
             echo "CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}"
-            echo "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}"
             echo "MODEL=${MODEL:-claude-haiku-4-5-20251001}"
             echo "SCHEDULE_TIMES=${SCHEDULE_TIMES:-07:01,12:01,17:01}"
             echo "TIMEZONE=${TIMEZONE:-Asia/Karachi}"

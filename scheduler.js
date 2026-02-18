@@ -13,9 +13,9 @@ const MODEL = process.env.MODEL || 'claude-haiku-4-5-20251001';
 const MESSAGE_PROMPT = process.env.MESSAGE_PROMPT || null;
 
 // Validate required configuration
-if (!process.env.CLAUDE_CODE_OAUTH_TOKEN && !process.env.ANTHROPIC_API_KEY) {
+if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) {
   console.error('❌ ERROR: Authentication credentials not found!');
-  console.error('Please set CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY in .env file');
+  console.error('Please set CLAUDE_CODE_OAUTH_TOKEN in .env file');
   console.error('\nTo get OAuth Token:');
   console.error('  1. Run: claude setup-token');
   console.error('  2. Copy the generated token');
@@ -79,7 +79,6 @@ async function sendMessage() {
         error.message.includes('Invalid API key')) {
       console.error('\n💡 Authentication failed. Please check:');
       console.error('1. CLAUDE_CODE_OAUTH_TOKEN is valid (run: claude setup-token)');
-      console.error('2. ANTHROPIC_API_KEY is correct (from https://console.anthropic.com)');
     }
     
     throw error;

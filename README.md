@@ -20,7 +20,7 @@ Default schedule sends messages 3 times daily (fully customizable):
 ## Prerequisites
 
 - Node.js (v14 or higher) OR Docker
-- Claude Code CLI installed (for OAuth token) OR Anthropic API key
+- Claude Code CLI installed (for OAuth token)
 
 ## Quick Setup
 
@@ -36,9 +36,6 @@ claude setup-token
 ```
 
 This will generate a token. Copy it for the next step.
-
-**Option B: Using Anthropic API Key**
-Get your API key from https://console.anthropic.com
 
 ### 2. Install and Configure
 
@@ -152,21 +149,24 @@ These secrets are **required** for deployment to work:
 - Your server's IP address or domain name
 - Example: `123.45.67.89` or `server.example.com`
 
-**`GH_PERSONAL_ACCESS_TOKEN`**
-- GitHub Personal Access Token for cloning private repositories
-- Create at: https://github.com/settings/tokens
-- Select scopes: `repo` (Full control of private repositories)
-- Copy the token (starts with `ghp_`)
-
-**`CLAUDE_CODE_OAUTH_TOKEN`** (or `ANTHROPIC_API_KEY`)
+**`CLAUDE_CODE_OAUTH_TOKEN`**
 - Your Claude authentication token
 - Get it by running: `claude setup-token`
-- OR use API key from: https://console.anthropic.com
-- **Choose ONE**: Either OAuth token OR API key
 
 #### Step 3: Add Optional Secrets
 
 These secrets are **optional** and have default values:
+
+**`SERVER_USER`**
+- SSH username for your deployment server
+- Default: `ubuntu`
+- Example: `ubuntu`, `ec2-user`, `debian`
+
+**`GH_PERSONAL_ACCESS_TOKEN`**
+- GitHub Personal Access Token used to clone private repositories
+- For this public repository, you can leave this unset
+- Create at: https://github.com/settings/tokens (if needed)
+- Scope needed for private repos: `repo`
 
 **`MODEL`**
 - Claude model to use
@@ -187,11 +187,6 @@ These secrets are **optional** and have default values:
 - Default: Random math problems like "42+73"
 - Example: `Hello! Keeping the session alive.`
 
-**`ANTHROPIC_API_KEY`** (alternative to OAuth token)
-- If you prefer API key over OAuth token
-- Get from: https://console.anthropic.com
-- Starts with: `sk-ant-api03-`
-
 #### Step 4: Verify Secrets
 
 After adding all secrets, you should see them listed:
@@ -199,8 +194,9 @@ After adding all secrets, you should see them listed:
 ```
 ✓ SSH_PRIVATE_KEY
 ✓ SERVER_IP  
-✓ GH_PERSONAL_ACCESS_TOKEN
 ✓ CLAUDE_CODE_OAUTH_TOKEN
+✓ SERVER_USER (optional)
+✓ GH_PERSONAL_ACCESS_TOKEN (optional)
 ✓ MODEL (optional)
 ✓ SCHEDULE_TIMES (optional)
 ✓ TIMEZONE (optional)
@@ -242,7 +238,7 @@ Your deployment server must have:
 - **User with sudo permissions** (default username: `ubuntu`)
   ```bash
   # Add your public key to server
-  ssh-copy-id ubuntu@your-server-ip
+  ssh-copy-id <server-user>@your-server-ip
   
   # Or manually:
   # Copy ~/.ssh/id_ed25519.pub to server's ~/.ssh/authorized_keys
@@ -254,11 +250,10 @@ Your deployment server must have:
 - Verify `SSH_PRIVATE_KEY` is the complete private key
 - Check `SERVER_IP` is correct
 - Ensure public key is in server's `~/.ssh/authorized_keys`
-- Test manually: `ssh ubuntu@your-server-ip`
+- Test manually: `ssh <server-user>@your-server-ip`
 
 **Authentication Failed**
 - Run `claude setup-token` and update `CLAUDE_CODE_OAUTH_TOKEN`
-- Or verify `ANTHROPIC_API_KEY` from console.anthropic.com
 - Make sure you added the secret correctly (no extra spaces)
 
 **Docker Not Found**
@@ -272,7 +267,7 @@ Your deployment server must have:
 **Permission Denied**
 - Ensure server user has Docker permissions:
   ```bash
-  sudo usermod -aG docker ubuntu
+  sudo usermod -aG docker <server-user>
   # Then logout and login again
   ```
 
@@ -379,11 +374,9 @@ pm2 status
 
 **Authentication Error**
 - Run `claude setup-token` to get a fresh token
-- Or verify your `ANTHROPIC_API_KEY` is correct
 
 **Token Format**
 - OAuth tokens start with various prefixes (sk-ant-)
-- API keys start with sk-ant-api03-
 
 **Schedule Not Working**
 - Verify timezone is correct: `TIMEZONE=Your/Timezone`
