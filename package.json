@@ -1,15 +1,18 @@
 {
   "name": "claude-session-starter",
   "version": "1.0.0",
-  "description": "Automated Claude session scheduler using Claude Agent SDK",
+  "description": "Scheduled Claude and Codex session pinger with local multi-account Codex storage",
   "main": "scheduler.js",
   "type": "module",
   "scripts": {
     "start": "node scheduler.js",
-    "test": "node test.js"
+    "test": "node --test tests/*.test.js",
+    "smoke": "node test.js",
+    "codex:accounts": "node scripts/codex-accounts.js"
   },
   "keywords": [
     "claude",
+    "codex",
     "anthropic",
     "scheduler",
     "automation"

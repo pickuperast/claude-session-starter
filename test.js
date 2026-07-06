@@ -1,64 +1,40 @@
 #!/usr/bin/env node
 import 'dotenv/config';
-import { sendMessage, generateMessage } from './scheduler.js';
 
-console.log('🧪 Claude Agent SDK Test');
+import { getRuntimeConfig } from './lib/config.js';
+import { runOnce } from './scheduler.js';
+
+const config = getRuntimeConfig();
+
+console.log('Scheduler smoke test');
 console.log('='.repeat(50));
-console.log('');
-
-// Check authentication
-if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) {
-  console.error('❌ ERROR: No authentication credentials found!');
-  console.error('Please set CLAUDE_CODE_OAUTH_TOKEN in .env');
-  console.error('\nSetup:');
-  console.error('  1. Run: claude setup-token');
-  console.error('  2. Copy token to .env file');
-  process.exit(1);
-}
-
-console.log('✅ Authentication: Configured');
-console.log(`🤖 Model: ${process.env.MODEL || 'claude-haiku-4-5-20251001'}`);
-console.log('');
-
-// Test message generation
-console.log('📝 Testing message generation...');
-const testMessage = generateMessage();
-console.log(`Generated prompt: "${testMessage}"`);
-console.log('');
-
-// Test API call
-console.log('🚀 Testing API connection...');
-console.log('Sending message to Claude...');
+console.log(`Providers: ${config.enabledProviders.join(', ') || 'none'}`);
+console.log(`Timezone: ${config.timezone}`);
+console.log(`Claude model: ${config.claudeModel}`);
+console.log(`Codex model: ${config.codexModel}`);
 console.log('');
 
 try {
-  const result = await sendMessage();
-  
+  const { prompt, results } = await runOnce(config);
+  const failedResults = results.filter((result) => !result.success);
+
   console.log('');
-  console.log('='.repeat(50));
-  console.log('✅ TEST PASSED!');
-  console.log('='.repeat(50));
-  console.log('');
-  console.log('The scheduler is working correctly.');
-  console.log('You can now run: npm start');
-  console.log('');
-  
+  console.log(`Prompt: "${prompt}"`);
+  console.log(`Completed results: ${results.length}`);
+
+  if (failedResults.length > 0) {
+    console.log('Smoke test failed.');
+    for (const result of failedResults) {
+      console.log(
+        `- ${result.provider}:${result.accountId} success=${result.success} errorCode=${result.errorCode || 'none'}`
+      );
+    }
+    process.exit(1);
+  }
+
+  console.log('Smoke test passed.');
   process.exit(0);
 } catch (error) {
-  console.log('');
-  console.log('='.repeat(50));
-  console.log('❌ TEST FAILED!');
-  console.log('='.repeat(50));
-  console.log('');
-  console.error('Error:', error.message);
-  console.log('');
-  
-  if (error.message.includes('authentication') || error.message.includes('Invalid')) {
-    console.error('💡 Troubleshooting:');
-    console.error('  1. Verify your token: claude setup-token');
-    console.error('  2. Check .env file has CLAUDE_CODE_OAUTH_TOKEN set');
-  }
-  
-  console.log('');
+  console.error(`Smoke test failed: ${error.message}`);
   process.exit(1);
 }

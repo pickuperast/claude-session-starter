@@ -1,4 +1,5 @@
 node_modules/
 .env
 *.log
+state/
 docs\claude-oauth-token-usage-tips.md

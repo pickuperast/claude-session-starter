@@ -1,147 +1,173 @@
 import 'dotenv/config';
-import { query } from '@anthropic-ai/claude-agent-sdk';
 import cron from 'node-cron';
 
-// Schedule configuration
-const SCHEDULE_TIMES = process.env.SCHEDULE_TIMES || '07:01,12:01,17:01';
-const TIMEZONE = process.env.TIMEZONE || 'Asia/Karachi';
+import { getRuntimeConfig } from './lib/config.js';
+import { createLogger } from './lib/logger.js';
+import { sendClaudeMessage } from './lib/providers/claude.js';
+import { sendCodexMessage } from './lib/providers/codex.js';
 
-// Model configuration
-const MODEL = process.env.MODEL || 'claude-haiku-4-5-20251001';
-
-// Message configuration
-const MESSAGE_PROMPT = process.env.MESSAGE_PROMPT || null;
-
-// Validate required configuration
-if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) {
-  console.error('❌ ERROR: Authentication credentials not found!');
-  console.error('Please set CLAUDE_CODE_OAUTH_TOKEN in .env file');
-  console.error('\nTo get OAuth Token:');
-  console.error('  1. Run: claude setup-token');
-  console.error('  2. Copy the generated token');
-  console.error('  3. Add to .env file: CLAUDE_CODE_OAUTH_TOKEN=your_token_here');
-  process.exit(1);
-}
-
-/**
- * Generate a message with random math problem
- */
-function generateMessage() {
-  if (MESSAGE_PROMPT) {
-    return MESSAGE_PROMPT;
-  }
-  
-  // Generate random numbers between 0-100
-  const num1 = Math.floor(Math.random() * 101);
-  const num2 = Math.floor(Math.random() * 101);
-  return `${num1}+${num2}`;
-}
-
-/**
- * Send a message to Claude using the Agent SDK
- */
-async function sendMessage() {
-  const timestamp = new Date().toLocaleString('en-US', { 
-    timeZone: TIMEZONE,
-    hour12: false 
-  });
-  
-  try {
-    const prompt = generateMessage();
-    console.log(`[${timestamp}] Sending message to Claude...`);
-    console.log(`[${timestamp}] Prompt: "${prompt}"`);
-    
-    let resultText = '';
-    
-    // Use query function with automatic OAuth handling
-    for await (const msg of query({
-      prompt: prompt,
-      options: {
-        model: MODEL,
-        maxTurns: 1  // Single turn conversation
-      }
-    })) {
-      if (msg.type === 'result') {
-        resultText = msg.result;
-      }
-    }
-    
-    console.log(`[${timestamp}] ✓ Message sent successfully`);
-    console.log(`[${timestamp}] Response: ${resultText}`);
-    
-    return resultText;
-    
-  } catch (error) {
-    console.error(`[${timestamp}] ✗ Error sending message:`, error.message);
-    
-    // Provide helpful error messages
-    if (error.message.includes('authentication') || 
-        error.message.includes('Invalid API key')) {
-      console.error('\n💡 Authentication failed. Please check:');
-      console.error('1. CLAUDE_CODE_OAUTH_TOKEN is valid (run: claude setup-token)');
-    }
-    
-    throw error;
-  }
-}
-
-/**
- * Parse schedule times from environment and create cron jobs
- */
-function setupScheduledJobs() {
-  const times = SCHEDULE_TIMES.split(',').map(t => t.trim());
-  
-  if (times.length === 0) {
-    throw new Error('No schedule times configured. Please set SCHEDULE_TIMES in .env');
+function generateMessage(promptFromEnv = getRuntimeConfig().messagePrompt) {
+  if (promptFromEnv) {
+    return promptFromEnv;
   }
 
-  console.log('🚀 Claude Agent SDK Scheduler started');
-  console.log(`⏰ Timezone: ${TIMEZONE}`);
-  console.log(`🤖 Model: ${MODEL}`);
-  console.log('🔑 Authentication: Claude Agent SDK (auto-managed)');
-  console.log('📅 Scheduled times:');
+  const first = Math.floor(Math.random() * 101);
+  const second = Math.floor(Math.random() * 101);
+  return `${first}+${second}`;
+}
 
-  times.forEach((time, index) => {
-    // Parse time in HH:MM format
-    const [hour, minute] = time.split(':').map(t => parseInt(t.trim(), 10));
-    
-    if (isNaN(hour) || isNaN(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-      console.error(`❌ Invalid time format: ${time}. Expected HH:MM (e.g., 07:01)`);
-      return;
-    }
-
-    // Create cron expression: minute hour * * *
-    const cronExpression = `${minute} ${hour} * * *`;
-    
-    cron.schedule(cronExpression, () => {
-      console.log(`\n=== Scheduled Task ${index + 1}: ${time} ${TIMEZONE} ===`);
-      sendMessage().catch(err => console.error('Task failed:', err.message));
-    }, {
-      timezone: TIMEZONE
+async function sendMessage({ provider, prompt, config = getRuntimeConfig(), logger }) {
+  if (provider === 'claude') {
+    return sendClaudeMessage({
+      prompt,
+      model: config.claudeModel,
+      logger
     });
+  }
 
-    console.log(`  ${index + 1}. ${time} (${hour}:${minute.toString().padStart(2, '0')})`);
-  });
+  if (provider === 'codex') {
+    return sendCodexMessage({
+      prompt,
+      model: config.codexModel,
+      logger
+    });
+  }
 
-  console.log('\n✅ All jobs scheduled. Waiting for scheduled times...\n');
+  throw new Error(`Unsupported provider "${provider}".`);
 }
 
-// Export for testing
-export { sendMessage, generateMessage };
+export async function runOnce(config = getRuntimeConfig()) {
+  validateConfig(config);
+  const logger = createLogger({ timezone: config.timezone });
+  const prompt = generateMessage(config.messagePrompt);
 
-// Only run scheduler if this is the main module
+  await logger.info('Dispatch prompt', {
+    prompt,
+    providers: config.enabledProviders
+  });
+
+  const results = [];
+  for (const provider of config.enabledProviders) {
+    await logger.info('Starting provider', { provider });
+    let providerResults;
+
+    try {
+      providerResults = await sendMessage({ provider, prompt, config, logger });
+    } catch (error) {
+      providerResults = [
+        {
+          provider,
+          accountId: provider === 'claude' ? 'claude-legacy' : 'codex-provider',
+          accountEmail: null,
+          model: provider === 'claude' ? config.claudeModel : config.codexModel,
+          durationMs: 0,
+          success: false,
+          errorCode: 'provider_error',
+          response: error.message
+        }
+      ];
+    }
+
+    for (const result of providerResults) {
+      await logStructuredResult(result, logger);
+    }
+
+    results.push(...providerResults);
+  }
+
+  return {
+    prompt,
+    results
+  };
+}
+
+async function logStructuredResult(result, logger) {
+  const payload = {
+    provider: result.provider,
+    accountId: result.accountId,
+    accountEmail: result.accountEmail,
+    model: result.model,
+    durationMs: result.durationMs,
+    success: result.success,
+    errorCode: result.errorCode
+  };
+
+  await logger.info('Provider result', payload);
+  await logger.info('Provider response', {
+    provider: result.provider,
+    accountId: result.accountId,
+    response: result.response || null
+  });
+}
+
+function validateConfig(config) {
+  if (!config.enabledProviders.length) {
+    throw new Error('No providers enabled. Set PING_PROVIDER_CODEX=true and/or PING_PROVIDER_CLAUDE=true.');
+  }
+}
+
+export function setupScheduledJobs(config = getRuntimeConfig()) {
+  validateConfig(config);
+  const logger = createLogger({ timezone: config.timezone });
+
+  const times = config.scheduleTimes
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (times.length === 0) {
+    throw new Error('No schedule times configured. Set SCHEDULE_TIMES in .env.');
+  }
+
+  logger.info('Scheduler started', {
+    timezone: config.timezone,
+    providers: config.enabledProviders,
+    claudeModel: config.claudeModel,
+    codexModel: config.codexModel
+  });
+
+  for (const [index, time] of times.entries()) {
+    const [hour, minute] = time.split(':').map((value) => Number.parseInt(value, 10));
+    if (Number.isNaN(hour) || Number.isNaN(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      throw new Error(`Invalid schedule time "${time}". Expected HH:MM.`);
+    }
+
+    const cronExpression = `${minute} ${hour} * * *`;
+    cron.schedule(
+      cronExpression,
+      () => {
+        logger.info('Scheduled run triggered', {
+          slot: index + 1,
+          time,
+          timezone: config.timezone
+        });
+        runOnce(config).catch((error) => {
+          logger.error('Scheduled run failed', { error: error.message });
+        });
+      },
+      {
+        timezone: config.timezone
+      }
+    );
+
+    logger.info('Scheduled slot registered', { slot: index + 1, time });
+  }
+
+  logger.info('All jobs scheduled');
+}
+
 if (import.meta.url === `file://${process.argv[1]}` || import.meta.url.endsWith(process.argv[1])) {
-  // Initialize scheduled jobs
   try {
     setupScheduledJobs();
   } catch (error) {
-    console.error('❌ Failed to initialize scheduler:', error.message);
+    console.error(`Failed to initialize scheduler: ${error.message}`);
     process.exit(1);
   }
 
-  // Keep the script running
   process.on('SIGINT', () => {
-    console.log('\n\n👋 Scheduler stopped');
+    console.log('\nScheduler stopped');
     process.exit(0);
   });
 }
+
+export { generateMessage, sendMessage };

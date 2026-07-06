@@ -1,389 +1,131 @@
-# Anthropic API Scheduler
+# Multi-Account Codex Scheduler
 
-A Node.js script that automatically sends messages to Claude using the Claude Agent SDK at scheduled times.
+This service sends a scheduled prompt through one or more saved `codex` accounts. It keeps the runtime auth state inside the repository under `./state`, while leaving `./state/**` untracked by Git. A single-account Claude flow remains available as an optional legacy provider.
 
-## Features
+## What changed
 
-✅ **Super Simple Setup**: Uses Claude Agent SDK - no manual OAuth handling needed!  
-✅ **Automatic Authentication**: SDK handles all token management automatically  
-✅ **Flexible Scheduling**: Set any times and timezone via .env  
-✅ **Docker Support**: Runs as a containerized service with auto-restart  
-✅ **GitHub Actions Deploy**: Automated deployment to remote servers
+- `codex` is now the primary provider.
+- Multiple Codex accounts are stored in `./state/accounts/codex-accounts.json`.
+- The active Codex auth payload is synchronized into `./state/codex-home/auth.json` before each run.
+- Scheduler jobs iterate through all enabled Codex accounts sequentially.
+- A failure for one Codex account does not stop the rest of the batch.
 
-## Schedule
+## Requirements
 
-Default schedule sends messages 3 times daily (fully customizable):
-- **7:01 AM** - First daily message (default)
-- **12:01 PM** - 5 hours after first (default)
-- **5:01 PM** - 5 hours after second (default)
+- Node.js 20+
+- Installed `codex` CLI available on `PATH`
+- Optional: Claude Code token only if you enable the legacy Claude provider
 
-## Prerequisites
+## Environment
 
-- Node.js (v14 or higher) OR Docker
-- Claude Code CLI installed (for OAuth token)
-
-## Quick Setup
-
-### 1. Get Your Authentication Token
-
-**Option A: Using Claude Code CLI (Recommended)**
-```bash
-# Install Claude Code CLI if you haven't
-npm install -g @anthropic-ai/claude-code
-
-# Setup token
-claude setup-token
-```
-
-This will generate a token. Copy it for the next step.
-
-### 2. Install and Configure
+Copy `.env.example` to `.env` and adjust values:
 
 ```bash
-# Install dependencies
-npm install
-
-# Configure environment
-cp .env.example .env
+PING_PROVIDER_CODEX=true
+PING_PROVIDER_CLAUDE=false
+CODEX_HOME=./state/codex-home
+ACCOUNT_STORAGE_PATH=./state/accounts/codex-accounts.json
+CODEX_MODEL=gpt-5.4-mini
+CODEX_ACCOUNT_SELECTION=all
+CODEX_ENABLE_AUTO_FALLBACK=true
+CODEX_FAILURE_COOLDOWN_MINUTES=60
+SCHEDULER_LOG_PATH=./state/logs/scheduler.log
+MESSAGE_PROMPT=tell me a joke about programmers
+SCHEDULE_TIMES=07:01
+TIMEZONE=Etc/GMT-5
 ```
 
-Edit `.env` and add your token:
+Legacy Claude mode can still be enabled with:
+
 ```bash
-CLAUDE_CODE_OAUTH_TOKEN=your_token_from_setup_token
-
-# Customize schedule (optional)
-SCHEDULE_TIMES=07:01,12:01,17:01
-TIMEZONE=Asia/Karachi
+PING_PROVIDER_CLAUDE=true
+CLAUDE_CODE_OAUTH_TOKEN=...
+MODEL=claude-haiku-4-5-20251001
 ```
 
-### 3. Run
+## Manual bootstrap for Codex accounts
+
+This bootstrap must happen before Docker is started.
+
+1. Install dependencies: `npm install`
+2. Copy `.env.example` to `.env`
+3. Add the first account: `npm run codex:accounts -- login --label main`
+4. Repeat for every additional account: `npm run codex:accounts -- login --label work`
+5. Verify storage: `npm run codex:accounts -- list`
+6. Confirm `git status` does not show `state/`
+7. Only then start the scheduler
+
+`login` runs `codex login` against the local repository `CODEX_HOME`, then imports the resulting auth payload into `./state/accounts/codex-accounts.json`.
+
+Useful account commands:
+
+```bash
+npm run codex:accounts -- list
+npm run codex:accounts -- switch 0
+npm run codex:accounts -- switch main
+npm run codex:accounts -- pin main
+npm run codex:accounts -- disable main
+npm run codex:accounts -- enable main
+npm run codex:accounts -- cooldown-clear main
+npm run codex:accounts -- status
+```
+
+## Running locally
+
+Start the scheduler:
 
 ```bash
 npm start
 ```
 
-## Testing
+Run one smoke execution immediately:
 
-Before running the scheduler, test that everything works:
+```bash
+npm run smoke
+```
+
+Run unit tests:
 
 ```bash
 npm test
 ```
 
-This will:
-- Verify authentication is working
-- Send a test message to Claude
-- Display the response
-- Confirm the setup is correct
+## Docker
 
-Expected output:
-```
-🧪 Claude Agent SDK Test
-==================================================
+The container mounts the local runtime state:
 
-✅ Authentication: Configured
-🤖 Model: claude-haiku-4-5-20251001
+- `./state/accounts`
+- `./state/codex-home`
+- `./state/logs`
 
-📝 Testing message generation...
-Generated prompt: "42+73"
-
-🚀 Testing API connection...
-Sending message to Claude...
-
-[timestamp] Sending message to Claude...
-[timestamp] Prompt: "42+73"
-[timestamp] ✓ Message sent successfully
-[timestamp] Response: 115
-
-==================================================
-✅ TEST PASSED!
-==================================================
-
-The scheduler is working correctly.
-You can now run: npm start
-```
-
-That's it! The Claude Agent SDK handles all authentication automatically.
-
-### Docker Deployment
+Start Docker only after the manual bootstrap has created and populated `./state/**`.
 
 ```bash
-# Configure environment
-cp .env.example .env
-# Edit .env with your token
-
-# Run with Docker Compose
-docker-compose up -d
-
-# View logs
-docker-compose logs -f scheduler
+docker compose up -d --build
+docker compose logs -f scheduler
 ```
 
-## GitHub Actions Deployment
+## Storage layout
 
-This project includes automated deployment to your server via GitHub Actions.
+Runtime files are local only:
 
-### Setting Up GitHub Secrets
+- `./state/accounts/codex-accounts.json`
+- `./state/codex-home/auth.json`
+- `./state/logs/scheduler.log`
 
-GitHub Actions uses secrets to securely store sensitive information like API keys and credentials. Follow these steps to configure them:
+The scheduler reads `codex-accounts.json` as the canonical account list. Before each `codex exec`, it writes the selected account auth payload into `./state/codex-home/auth.json`, runs the command, then re-imports the updated auth payload back into storage.
 
-#### Step 1: Access Repository Secrets
+## Scheduler behavior
 
-1. Go to your GitHub repository
-2. Click **Settings** (top menu)
-3. In the left sidebar, click **Secrets and variables** → **Actions**
-4. Click the **New repository secret** button
+- Provider selection is controlled through `.env`
+- Every prompt, response, result, and scheduler event is logged to container stdout and `./state/logs/scheduler.log`
+- Codex accounts are processed sequentially
+- Disabled accounts are skipped
+- Accounts in cooldown are skipped until `cooldownUntil`
+- Errors are recorded per account in storage
+- When auto fallback is enabled, transient failures set a cooldown instead of stopping the batch
+- Default timestamps are recorded in `GMT+5`, using `TIMEZONE=Etc/GMT-5`
 
-#### Step 2: Add Required Secrets
+## Deployment notes
 
-These secrets are **required** for deployment to work:
-
-**`SSH_PRIVATE_KEY`**
-- Your SSH private key for connecting to the server
-- Generate with: `ssh-keygen -t ed25519 -C "github-actions"`
-- Copy the **private key** content: `cat ~/.ssh/id_ed25519`
-- Paste the entire key including `-----BEGIN` and `-----END` lines
-- Make sure the public key is added to your server's `~/.ssh/authorized_keys`
-
-**`SERVER_IP`**
-- Your server's IP address or domain name
-- Example: `123.45.67.89` or `server.example.com`
-
-**`CLAUDE_CODE_OAUTH_TOKEN`**
-- Your Claude authentication token
-- Get it by running: `claude setup-token`
-
-#### Step 3: Add Optional Secrets
-
-These secrets are **optional** and have default values:
-
-**`SERVER_USER`**
-- SSH username for your deployment server
-- Default: `ubuntu`
-- Example: `ubuntu`, `ec2-user`, `debian`
-
-**`GH_PERSONAL_ACCESS_TOKEN`**
-- GitHub Personal Access Token used to clone private repositories
-- For this public repository, you can leave this unset
-- Create at: https://github.com/settings/tokens (if needed)
-- Scope needed for private repos: `repo`
-
-**`MODEL`**
-- Claude model to use
-- Default: `claude-haiku-4-5-20251001`
-
-**`SCHEDULE_TIMES`**
-- When to run the scheduler (comma-separated, 24-hour format)
-- Default: `07:01,12:01,17:01`
-- Example: `06:00,12:00,18:00,00:00` (every 6 hours)
-
-**`TIMEZONE`**
-- IANA timezone name
-- Default: `Asia/Karachi`
-- Examples: `America/New_York`, `Europe/London`, `UTC`
-
-**`MESSAGE_PROMPT`**
-- Custom message to send (optional)
-- Default: Random math problems like "42+73"
-- Example: `Hello! Keeping the session alive.`
-
-#### Step 4: Verify Secrets
-
-After adding all secrets, you should see them listed:
-
-```
-✓ SSH_PRIVATE_KEY
-✓ SERVER_IP  
-✓ CLAUDE_CODE_OAUTH_TOKEN
-✓ SERVER_USER (optional)
-✓ GH_PERSONAL_ACCESS_TOKEN (optional)
-✓ MODEL (optional)
-✓ SCHEDULE_TIMES (optional)
-✓ TIMEZONE (optional)
-✓ MESSAGE_PROMPT (optional)
-```
-
-### Deployment Triggers
-
-The workflow deploys automatically when:
-- You push to the `main` branch
-- You manually trigger it from the **Actions** tab
-
-### Manual Deployment
-
-To manually trigger a deployment:
-
-1. Go to your repository on GitHub
-2. Click the **Actions** tab
-3. Select **Deploy to Server** workflow
-4. Click **Run workflow** button
-5. Select the branch (usually `main`)
-6. Click **Run workflow**
-
-### Server Requirements
-
-Your deployment server must have:
-- **Ubuntu/Debian-based** Linux distribution
-- **Docker** and **Docker Compose** installed
-  ```bash
-  # Install Docker
-  curl -fsSL https://get.docker.com -o get-docker.sh
-  sudo sh get-docker.sh
-  
-  # Install Docker Compose
-  sudo apt-get update
-  sudo apt-get install docker-compose-plugin
-  ```
-- **SSH access** configured with your public key
-- **User with sudo permissions** (default username: `ubuntu`)
-  ```bash
-  # Add your public key to server
-  ssh-copy-id <server-user>@your-server-ip
-  
-  # Or manually:
-  # Copy ~/.ssh/id_ed25519.pub to server's ~/.ssh/authorized_keys
-  ```
-
-### Troubleshooting Deployment
-
-**SSH Connection Failed**
-- Verify `SSH_PRIVATE_KEY` is the complete private key
-- Check `SERVER_IP` is correct
-- Ensure public key is in server's `~/.ssh/authorized_keys`
-- Test manually: `ssh <server-user>@your-server-ip`
-
-**Authentication Failed**
-- Run `claude setup-token` and update `CLAUDE_CODE_OAUTH_TOKEN`
-- Make sure you added the secret correctly (no extra spaces)
-
-**Docker Not Found**
-- SSH into server and install Docker:
-  ```bash
-  curl -fsSL https://get.docker.com -o get-docker.sh
-  sudo sh get-docker.sh
-  sudo usermod -aG docker $USER
-  ```
-
-**Permission Denied**
-- Ensure server user has Docker permissions:
-  ```bash
-  sudo usermod -aG docker <server-user>
-  # Then logout and login again
-  ```
-
-**Workflow Fails to Clone Repository**
-- Check `GH_PERSONAL_ACCESS_TOKEN` has `Contents` read-only scope
-- For public repos, this token is less critical but still recommended
-- For private repos, this token is required
-
-### Viewing Deployment Logs
-
-1. Go to **Actions** tab in your repository
-2. Click on the latest workflow run
-3. Click **Deploy to Server** job
-4. Expand steps to see detailed logs
-5. Check server logs: `ssh ubuntu@server-ip "cd /var/www/claude-session-starter && docker-compose logs"`
-
----
-
-## Running in Production (Without Docker)
-
-For continuous operation with PM2:
-
-```bash
-# Install PM2 globally
-npm install -g pm2
-
-# Start the scheduler
-pm2 start scheduler.js --name anthropic-scheduler
-
-# Save PM2 configuration
-pm2 save
-
-# Set PM2 to start on system boot
-pm2 startup
-```
-
-## Customization
-
-### Model Selection
-
-Set the Claude model via .env:
-
-```bash
-MODEL=claude-haiku-4-5-20251001  # Fast and cost-effective (default)
-# MODEL=claude-3-5-sonnet-20241022  # More capable
-# MODEL=claude-opus-4  # Most capable
-```
-
-### Schedule Timesand Timezone
-
-Configure via `.env` file:
-
-```bash
-# Set custom times (comma-separated, 24-hour format HH:MM)
-SCHEDULE_TIMES=06:00,11:00,16:00,21:00
-
-# Set timezone (IANA timezone name)
-TIMEZONE=America/New_York
-
-# Or use UTC
-TIMEZONE=UTC
-
-# Or other regions
-TIMEZONE=Europe/London
-TIMEZONE=Asia/Tokyo
-```
-
-**Examples:**
-- Every 4 hours: `SCHEDULE_TIMES=00:00,04:00,08:00,12:00,16:00,20:00`
-- Every 6 hours: `SCHEDULE_TIMES=00:00,06:00,12:00,18:00`
-- Twice daily: `SCHEDULE_TIMES=09:00,21:00`
-- Business hours only: `SCHEDULE_TIMES=09:00,13:00,17:00`
-
-**Finding your timezone:**
-- [List of IANA timezones](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
-- Common: `America/New_York`, `Europe/London`, `Asia/Tokyo`, `UTC`
-
-### Message Content
-
-By default, the scheduler sends random math problems like "42+73" to keep sessions active.
-
-To send a custom message instead:
-
-```bash
-MESSAGE_PROMPT=Hello! This is my custom message.
-```
-
-Leave `MESSAGE_PROMPT` empty or unset to use random math problems (default behavior).
-
-## Monitoring
-
-### Docker Logs
-```bash
-docker-compose logs -f scheduler
-```
-
-### PM2 Logs
-```bash
-pm2 logs anthropic-scheduler
-pm2 status
-```
-
-## Troubleshooting
-
-**Authentication Error**
-- Run `claude setup-token` to get a fresh token
-
-**Token Format**
-- OAuth tokens start with various prefixes (sk-ant-)
-
-**Schedule Not Working**
-- Verify timezone is correct: `TIMEZONE=Your/Timezone`
-- Check time format is HH:MM (24-hour)
-- View logs: `docker-compose logs -f scheduler`
-
-**Docker Issues**
-- Check status: `docker-compose ps`
-- View logs: `docker-compose logs`
-- Rebuild: `docker-compose up -d --build`
+The GitHub Actions deploy workflow preserves `./state/**`. On a fresh server you still need to do the first manual Codex bootstrap inside the checked-out repository before starting the containerized scheduler.
