@@ -16,21 +16,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install SSH key for GitHub Actions Runner
-        uses: shimataro/ssh-key-action@v2.6.0
-        with:
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          known_hosts: unnecessary
-          key_path: ~/.ssh/id_rsa
-          if_key_exists: replace
-
-      - name: Add server to known_hosts
+      - name: Configure SSH key and known_hosts
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
+          printf '%s\n' '${{ secrets.SSH_PRIVATE_KEY }}' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/id_rsa
 
       - name: Test SSH connection
         run: |
