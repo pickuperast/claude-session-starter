@@ -126,9 +126,15 @@ jobs:
           fi
 
           if [ "${PING_PROVIDER_CODEX:-true}" = "true" ] && [ ! -f "state/accounts/codex-accounts.json" ]; then
-            echo "ERROR: state/accounts/codex-accounts.json is missing."
-            echo "Run the manual Codex bootstrap on the server before starting Docker."
-            exit 1
+            echo "WARNING: state/accounts/codex-accounts.json is missing."
+            echo "Skipping container deployment until manual Codex bootstrap is completed on the server."
+            echo "Bootstrap steps:"
+            echo "  cd $PROJECT_DIR"
+            echo "  cp .env.example .env"
+            echo "  npm install"
+            echo "  npm run codex:accounts -- login --label main"
+            echo "  docker compose up -d --build"
+            exit 0
           fi
 
           echo "Writing deployment environment file..."
