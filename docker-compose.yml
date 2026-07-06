@@ -1,17 +1,28 @@
-version: '3.8'
-
 services:
   scheduler:
     build: .
     container_name: claude-session-starter
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
+      - PING_PROVIDER_CODEX=${PING_PROVIDER_CODEX:-true}
+      - PING_PROVIDER_CLAUDE=${PING_PROVIDER_CLAUDE:-false}
+      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN:-}
       - MODEL=${MODEL:-claude-haiku-4-5-20251001}
-      - SCHEDULE_TIMES=${SCHEDULE_TIMES:-07:01,12:01,17:01}
-      - TIMEZONE=${TIMEZONE:-Asia/Karachi}
+      - CODEX_HOME=${CODEX_HOME:-/app/state/codex-home}
+      - ACCOUNT_STORAGE_PATH=${ACCOUNT_STORAGE_PATH:-/app/state/accounts/codex-accounts.json}
+      - CODEX_MODEL=${CODEX_MODEL:-gpt-5.4-mini}
+      - CODEX_ACCOUNT_SELECTION=${CODEX_ACCOUNT_SELECTION:-all}
+      - CODEX_ENABLE_AUTO_FALLBACK=${CODEX_ENABLE_AUTO_FALLBACK:-true}
+      - CODEX_FAILURE_COOLDOWN_MINUTES=${CODEX_FAILURE_COOLDOWN_MINUTES:-60}
+      - SCHEDULER_LOG_PATH=${SCHEDULER_LOG_PATH:-/app/state/logs/scheduler.log}
+      - SCHEDULE_TIMES=${SCHEDULE_TIMES:-07:01}
+      - TIMEZONE=${TIMEZONE:-Etc/GMT-5}
       - MESSAGE_PROMPT=${MESSAGE_PROMPT:-}
-      - TZ=${TIMEZONE:-Asia/Karachi}
+      - TZ=${TIMEZONE:-Etc/GMT-5}
+    volumes:
+      - ./state:/app/state
     logging:
       driver: "json-file"
       options:
