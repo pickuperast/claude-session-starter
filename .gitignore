@@ -1,5 +1,13 @@
 node_modules/
 .env
+.env.*
+!.env.example
 *.log
 state/
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
 docs\claude-oauth-token-usage-tips.md
