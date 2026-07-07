@@ -7,7 +7,7 @@ test('health endpoint returns scheduler status', async () => {
   const events = [];
   const server = createSchedulerHttpServer({
     config: {
-      timezone: 'Etc/GMT-5',
+      timezone: 'Asia/Almaty',
       scheduleTimes: '07:01,19:30',
       enabledProviders: ['codex']
     },
@@ -33,7 +33,7 @@ test('health endpoint returns scheduler status', async () => {
 
     assert.equal(response.status, 200);
     assert.equal(payload.ok, true);
-    assert.equal(payload.scheduler.timezone, 'Etc/GMT-5');
+    assert.equal(payload.scheduler.timezone, 'Asia/Almaty');
     assert.deepEqual(payload.scheduler.providers, ['codex']);
     assert.equal(payload.trigger.running, false);
     assert.equal(payload.trigger.lastRun, null);
@@ -45,7 +45,7 @@ test('health endpoint returns scheduler status', async () => {
 test('trigger endpoint runs the scheduler action and returns results', async () => {
   const server = createSchedulerHttpServer({
     config: {
-      timezone: 'Etc/GMT-5',
+      timezone: 'Asia/Almaty',
       scheduleTimes: '07:01',
       enabledProviders: ['codex']
     },

@@ -18,9 +18,9 @@ services:
       - CODEX_FAILURE_COOLDOWN_MINUTES=${CODEX_FAILURE_COOLDOWN_MINUTES:-60}
       - SCHEDULER_LOG_PATH=${SCHEDULER_LOG_PATH:-/app/state/logs/scheduler.log}
       - SCHEDULE_TIMES=${SCHEDULE_TIMES:-07:01}
-      - TIMEZONE=${TIMEZONE:-Etc/GMT-5}
+      - TIMEZONE=${TIMEZONE:-Asia/Almaty}
       - MESSAGE_PROMPT=${MESSAGE_PROMPT:-}
-      - TZ=${TIMEZONE:-Etc/GMT-5}
+      - TZ=${TIMEZONE:-Asia/Almaty}
     volumes:
       - ./state:/app/state
     logging:
