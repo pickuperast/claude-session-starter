@@ -11,7 +11,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
-RUN npm ci --omit=dev && npm install -g @openai/codex@0.142.5
+RUN npm ci --omit=dev
 
 # Copy application files
 COPY lib ./lib

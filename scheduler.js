@@ -1,8 +1,11 @@
 import 'dotenv/config';
 import cron from 'node-cron';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { getRuntimeConfig } from './lib/config.js';
 import { createLogger } from './lib/logger.js';
+import { createSchedulerHttpServer } from './lib/http-server.js';
 import { sendClaudeMessage } from './lib/providers/claude.js';
 import { sendCodexMessage } from './lib/providers/codex.js';
 
@@ -154,11 +157,60 @@ export function setupScheduledJobs(config = getRuntimeConfig()) {
   }
 
   logger.info('All jobs scheduled');
+
+  return {
+    logger
+  };
 }
 
-if (import.meta.url === `file://${process.argv[1]}` || import.meta.url.endsWith(process.argv[1])) {
+export async function startSchedulerRuntime(config = getRuntimeConfig()) {
+  const { logger } = setupScheduledJobs(config);
+  const enableHttpServer = readBoolean(process.env.ENABLE_HTTP_SERVER, true);
+
+  if (!enableHttpServer) {
+    return {
+      logger,
+      httpServer: null
+    };
+  }
+
+  const httpServer = createSchedulerHttpServer({
+    config,
+    logger,
+    triggerRun: () => runOnce(config)
+  });
+
+  await httpServer.listen();
+  await logger.info('HTTP control server started', {
+    host: httpServer.host,
+    port: httpServer.port
+  });
+
+  return {
+    logger,
+    httpServer
+  };
+}
+
+function readBoolean(value, defaultValue = false) {
+  if (value === undefined) {
+    return defaultValue;
+  }
+
+  return ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase());
+}
+
+export function isDirectExecution(moduleUrl = import.meta.url, argv1 = process.argv[1]) {
+  if (!argv1) {
+    return false;
+  }
+
+  return path.resolve(fileURLToPath(moduleUrl)) === path.resolve(argv1);
+}
+
+if (isDirectExecution()) {
   try {
-    setupScheduledJobs();
+    await startSchedulerRuntime();
   } catch (error) {
     console.error(`Failed to initialize scheduler: ${error.message}`);
     process.exit(1);

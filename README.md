@@ -1,6 +1,6 @@
 # Multi-Account Codex Scheduler
 
-This service sends a scheduled prompt through one or more saved `codex` accounts. It keeps the runtime auth state inside the repository under `./state`, while leaving `./state/**` untracked by Git. A single-account Claude flow remains available as an optional legacy provider.
+This service sends a scheduled prompt through one or more saved `codex` accounts. It keeps the runtime auth state inside the repository under `./state`, while leaving `./state/**` untracked by Git. The runtime uses the local `@openai/codex-sdk` dependency, so no global Codex install is required. A single-account Claude flow remains available as an optional legacy provider.
 
 ## What changed
 
@@ -13,7 +13,7 @@ This service sends a scheduled prompt through one or more saved `codex` accounts
 ## Requirements
 
 - Node.js 20+
-- Installed `codex` CLI available on `PATH`
+- `npm install` pulls in `@openai/codex-sdk` and the Codex CLI runtime locally
 - Optional: Claude Code token only if you enable the legacy Claude provider
 
 ## Environment
@@ -76,6 +76,26 @@ Start the scheduler:
 
 ```bash
 npm start
+```
+
+The local process also starts an HTTP control server by default on `127.0.0.1:3000`.
+
+Check that the scheduler process is alive:
+
+```bash
+curl http://127.0.0.1:3000/health
+```
+
+Trigger one manual run without waiting for cron:
+
+```bash
+curl -X POST http://127.0.0.1:3000/trigger
+```
+
+Disable the HTTP server if needed:
+
+```bash
+ENABLE_HTTP_SERVER=false npm start
 ```
 
 Run one smoke execution immediately:

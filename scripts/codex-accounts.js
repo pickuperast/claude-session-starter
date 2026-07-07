@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 import 'dotenv/config';
 import { spawn } from 'node:child_process';
+import path from 'node:path';
+import { createRequire } from 'node:module';
 
 import { AccountManager } from '../lib/accounts/account-manager.js';
 import { ensureCodexHome, getAccountStoragePath, getCodexHomePath } from '../lib/accounts/storage.js';
 
 const accountManager = new AccountManager();
+const require = createRequire(import.meta.url);
 const [command, ...args] = process.argv.slice(2);
 
 try {
@@ -167,7 +170,8 @@ function printUsage() {
 
 function runCodexLogin(codexHomePath) {
   return new Promise((resolve, reject) => {
-    const child = spawn('codex', ['login'], {
+    const codexCliPath = getCodexCliScriptPath();
+    const child = spawn(process.execPath, [codexCliPath, 'login'], {
       stdio: 'inherit',
       env: {
         ...process.env,
@@ -188,4 +192,10 @@ function runCodexLogin(codexHomePath) {
       reject(new Error(`"codex login" exited with code ${code}.`));
     });
   });
+}
+
+function getCodexCliScriptPath() {
+  const packageJsonPath = require.resolve('@openai/codex/package.json');
+  const packageRoot = path.dirname(packageJsonPath);
+  return path.join(packageRoot, 'bin', 'codex.js');
 }
