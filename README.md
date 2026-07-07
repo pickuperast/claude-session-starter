@@ -32,7 +32,7 @@ CODEX_FAILURE_COOLDOWN_MINUTES=60
 SCHEDULER_LOG_PATH=./state/logs/scheduler.log
 MESSAGE_PROMPT=tell me a joke about programmers
 SCHEDULE_TIMES=07:01
-TIMEZONE=Etc/GMT-5
+TIMEZONE=Asia/Almaty
 ```
 
 Legacy Claude mode can still be enabled with:
@@ -144,7 +144,7 @@ The scheduler reads `codex-accounts.json` as the canonical account list. Before 
 - Accounts in cooldown are skipped until `cooldownUntil`
 - Errors are recorded per account in storage
 - When auto fallback is enabled, transient failures set a cooldown instead of stopping the batch
-- Default timestamps are recorded in `GMT+5`, using `TIMEZONE=Etc/GMT-5`
+- Default timestamps are recorded in Almaty time (`GMT+5`), using `TIMEZONE=Asia/Almaty`
 
 ## Deployment notes
 
