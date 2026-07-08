@@ -11,3 +11,4 @@ state/
 *.crt
 *.cer
 docs\claude-oauth-token-usage-tips.md
+.codex/config.toml

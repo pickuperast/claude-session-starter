@@ -15,6 +15,7 @@ This service sends a scheduled prompt through one or more saved `codex` accounts
 - Node.js 20+
 - `npm install` pulls in `@openai/codex-sdk` and the Codex CLI runtime locally
 - Optional: Claude Code token only if you enable the legacy Claude provider
+- The scheduled prompt lives in `./prompts/message-prompt.txt`
 
 ## Environment
 
@@ -30,7 +31,7 @@ CODEX_ACCOUNT_SELECTION=all
 CODEX_ENABLE_AUTO_FALLBACK=true
 CODEX_FAILURE_COOLDOWN_MINUTES=60
 SCHEDULER_LOG_PATH=./state/logs/scheduler.log
-MESSAGE_PROMPT=tell me a joke about programmers
+MESSAGE_PROMPT_FILE=./prompts/message-prompt.txt
 SCHEDULE_TIMES=07:01
 TIMEZONE=Asia/Almaty
 ```
@@ -132,12 +133,15 @@ Runtime files are local only:
 - `./state/accounts/codex-accounts.json`
 - `./state/codex-home/auth.json`
 - `./state/logs/scheduler.log`
+- `./prompts/message-prompt.txt`
 
 The scheduler reads `codex-accounts.json` as the canonical account list. Before each `codex exec`, it writes the selected account auth payload into `./state/codex-home/auth.json`, runs the command, then re-imports the updated auth payload back into storage.
+The scheduled message prompt now comes from `./prompts/message-prompt.txt` on every run. Edit that file directly if you want to change the task.
 
 ## Scheduler behavior
 
 - Provider selection is controlled through `.env`
+- The message prompt is loaded from `./prompts/message-prompt.txt` each run
 - Every prompt, response, result, and scheduler event is logged to container stdout and `./state/logs/scheduler.log`
 - Codex accounts are processed sequentially
 - Disabled accounts are skipped

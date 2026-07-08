@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildCodexClientOptions,
+  buildPrompt,
   buildThreadOptions,
   classifyCodexError,
 } from '../lib/codex/run-codex-command.js';
@@ -33,6 +34,18 @@ test('buildThreadOptions keeps the working directory and repo check override', (
   assert.deepEqual(buildThreadOptions({ model: 'gpt-5.4', cwd: '/repo' }), {
     model: 'gpt-5.4',
     workingDirectory: '/repo',
-    skipGitRepoCheck: true
+    skipGitRepoCheck: true,
+    modelReasoningEffort: 'high'
   });
+});
+
+test('buildPrompt wraps hard tasks in a goal command', () => {
+  assert.equal(
+    buildPrompt({ prompt: 'refactor the scheduler flow', taskMode: 'hard' }),
+    '/goal Solve this hard task carefully: refactor the scheduler flow. Reason through the problem, use tools as needed, verify the result, and keep going until the task is complete.'
+  );
+});
+
+test('buildPrompt preserves simple goal prompts when requested', () => {
+  assert.equal(buildPrompt({ prompt: 'fix the test suite', taskMode: 'simple' }), '/goal fix the test suite');
 });
