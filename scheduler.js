@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import fs from 'node:fs/promises';
 import cron from 'node-cron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,14 +10,14 @@ import { createSchedulerHttpServer } from './lib/http-server.js';
 import { sendClaudeMessage } from './lib/providers/claude.js';
 import { sendCodexMessage } from './lib/providers/codex.js';
 
-function generateMessage(promptFromEnv = getRuntimeConfig().messagePrompt) {
-  if (promptFromEnv) {
-    return promptFromEnv;
+export async function generateMessage(config = getRuntimeConfig(), cwd = process.cwd()) {
+  const promptFile = config.messagePromptFile ? path.resolve(cwd, config.messagePromptFile) : null;
+
+  if (promptFile) {
+    return readPromptFile(promptFile);
   }
 
-  const first = Math.floor(Math.random() * 101);
-  const second = Math.floor(Math.random() * 101);
-  return `${first}+${second}`;
+  throw new Error('Prompt file must be configured.');
 }
 
 async function sendMessage({ provider, prompt, config = getRuntimeConfig(), logger }) {
@@ -42,7 +43,7 @@ async function sendMessage({ provider, prompt, config = getRuntimeConfig(), logg
 export async function runOnce(config = getRuntimeConfig()) {
   validateConfig(config);
   const logger = createLogger({ timezone: config.timezone });
-  const prompt = generateMessage(config.messagePrompt);
+  const prompt = await generateMessage(config);
 
   await logger.info('Dispatch prompt', {
     prompt,
@@ -222,4 +223,23 @@ if (isDirectExecution()) {
   });
 }
 
-export { generateMessage, sendMessage };
+export { sendMessage };
+
+async function readPromptFile(promptFile) {
+  try {
+    const raw = await fs.readFile(promptFile, 'utf8');
+    const trimmed = raw.trim();
+
+    if (!trimmed) {
+      throw new Error(`Prompt file "${promptFile}" is empty.`);
+    }
+
+    return trimmed;
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      throw new Error(`Prompt file not found: "${promptFile}".`);
+    }
+
+    throw new Error(`Failed to read prompt file "${promptFile}": ${error.message}`);
+  }
+}

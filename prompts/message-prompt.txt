@@ -1,0 +1,1 @@
+tell me a joke about programmers, that joke should be written as a python code, every word should begin with letter "A". You need to find on the web most appropriate library for that python script file. Do not implement anything, just message me final code script after good reasoning.
