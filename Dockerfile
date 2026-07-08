@@ -19,6 +19,7 @@ COPY scripts ./scripts
 COPY tests ./tests
 COPY scheduler.js ./
 COPY test.js ./
+COPY prompts ./prompts
 
 # Create non-root user
 RUN addgroup --system nodejs && \

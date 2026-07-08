@@ -19,7 +19,7 @@ services:
       - SCHEDULER_LOG_PATH=${SCHEDULER_LOG_PATH:-/app/state/logs/scheduler.log}
       - SCHEDULE_TIMES=${SCHEDULE_TIMES:-07:01}
       - TIMEZONE=${TIMEZONE:-Asia/Almaty}
-      - MESSAGE_PROMPT=${MESSAGE_PROMPT:-}
+      - MESSAGE_PROMPT_FILE=${MESSAGE_PROMPT_FILE:-/app/prompts/message-prompt.txt}
       - TZ=${TIMEZONE:-Asia/Almaty}
     volumes:
       - ./state:/app/state
