@@ -49,3 +49,7 @@ test('buildPrompt wraps hard tasks in a goal command', () => {
 test('buildPrompt preserves simple goal prompts when requested', () => {
   assert.equal(buildPrompt({ prompt: 'fix the test suite', taskMode: 'simple' }), '/goal fix the test suite');
 });
+
+test('buildPrompt preserves raw slash commands when requested', () => {
+  assert.equal(buildPrompt({ prompt: '/status', promptMode: 'raw' }), '/status');
+});
