@@ -14,7 +14,7 @@ test('sendCodexMessage runs /status after each successful Codex response and log
   const accountManager = {
     codexHomePath: '/tmp/codex-home',
     async selectRunnableAccounts() {
-      return { accounts: [account] };
+      return { accounts: [account, { provider: 'claude', id: 'claude-local' }] };
     },
     async syncAccountToCodexHome() {},
     async importFromCodexHome() {},
@@ -52,7 +52,7 @@ test('sendCodexMessage runs /status after each successful Codex response and log
 
   const results = await sendCodexMessage({
     prompt: 'solve this task',
-    model: 'gpt-5.4-mini',
+    model: 'gpt-6-luna',
     logger,
     accountManager,
     runCodex

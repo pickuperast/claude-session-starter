@@ -61,7 +61,7 @@ export async function runOnce(config = getRuntimeConfig()) {
       providerResults = [
         {
           provider,
-          accountId: provider === 'claude' ? 'claude-legacy' : 'codex-provider',
+          accountId: `${provider}-provider`,
           accountEmail: null,
           model: provider === 'claude' ? config.claudeModel : config.codexModel,
           durationMs: 0,

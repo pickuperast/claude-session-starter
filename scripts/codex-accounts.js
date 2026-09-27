@@ -82,7 +82,7 @@ async function handleList() {
       .join(', ');
 
     console.log(
-      `#${account.index} ${account.label} email=${account.email || '-'} id=${account.id} lastUsed=${account.lastUsed || '-'} [${flags}]`
+      `#${account.index} ${account.label} provider=${account.provider} email=${account.email || '-'} id=${account.id} lastUsed=${account.lastUsed || '-'} [${flags}]`
     );
   }
 }
