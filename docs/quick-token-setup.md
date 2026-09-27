@@ -1,71 +1,9 @@
-# Getting Your Claude OAuth Token (Simple Method)
+# Importing account credentials
 
-## The Easiest Way - From Claude Code CLI Config
+Run `npm run codex:import` from the repository root. It reads `~/.codex/multi-auth/openai-codex-accounts.json` and `~/.claude/.credentials.json`, then merges both providers into `state/accounts/codex-accounts.json` (or `ACCOUNT_STORAGE_PATH`). It does not change the source files.
 
-If you already use Claude Code CLI, you already have a long-lived token!
+Set `PING_PROVIDER_CLAUDE=true` in `.env` to run Claude accounts. The scheduler reads Claude tokens from account storage. No OAuth token is needed in `.env` or GitHub secrets.
 
-### Step 1: Locate the Config File
+The Claude source must contain `claudeAiOauth.accessToken`, `refreshToken`, `expiresAt` and `scopes`. MCP credentials are excluded. Repeated imports update the `claude-local` entry, preserving its enabled flag and label.
 
-**macOS/Linux:**
-```bash
-cat ~/.config/claude/config.json
-```
-
-**Windows:**
-```cmd
-type %USERPROFILE%\.config\claude\config.json
-```
-
-Or navigate to: `C:\Users\YourUsername\.config\claude\config.json`
-
-### Step 2: Find the Token
-
-The file looks like this:
-```json
-{
-  "access_token": "<your_access_token_here>",
-  "expires_at": "2027-02-18T00:00:00Z",
-  "account": {
-    "email": "your.email@example.com"
-  }
-}
-```
-
-### Step 3: Copy the Token
-
-Copy the entire `access_token` value
-
-### Step 4: Add to .env
-
-Paste it into your `.env` file:
-```bash
-CLAUDE_CODE_OAUTH_TOKEN=<your_access_token_here>
-```
-
-**That's it!** No mitmproxy, no refresh tokens needed.
-
-## Token Lifespan
-
-- These tokens typically last **1 year**
-- Check the `expires_at` field to see when yours expires
-- When it expires, simply run `claude login` again and copy the new token
-
-## When the Token Expires
-
-If you see authentication errors, just refresh your token:
-
-```bash
-# Re-authenticate
-claude login
-
-# Copy the new token from config.json
-# Update your .env file with the new token
-# Restart the scheduler
-```
-
-## Security Notes
-
-- Keep your token private - it gives full access to your Claude account
-- Don't commit tokens to version control
-- Store `.env` file with restricted permissions (600 on Unix systems)
-- Monitor your account for unexpected activity
+Renew Codex logins every 10 days and the Claude login every 30 days, then rerun the import. These are the deployment's maintenance intervals; actual expiry and revocation may require earlier renewal. Claude access tokens are short-lived, so the SDK receives the full OAuth credentials and can use `refreshToken`. Refreshed credentials are saved back to account storage after each request. Keep `state/` out of Git.

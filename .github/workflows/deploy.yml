@@ -35,7 +35,6 @@ jobs:
           GHA_GH_TOKEN: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
           GHA_PING_PROVIDER_CODEX: ${{ secrets.PING_PROVIDER_CODEX }}
           GHA_PING_PROVIDER_CLAUDE: ${{ secrets.PING_PROVIDER_CLAUDE }}
-          GHA_CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GHA_MODEL: ${{ secrets.MODEL }}
           GHA_CODEX_HOME: ${{ secrets.CODEX_HOME }}
           GHA_ACCOUNT_STORAGE_PATH: ${{ secrets.ACCOUNT_STORAGE_PATH }}
@@ -54,7 +53,6 @@ jobs:
              export GH_TOKEN='$GHA_GH_TOKEN' && \
              export PING_PROVIDER_CODEX='$GHA_PING_PROVIDER_CODEX' && \
              export PING_PROVIDER_CLAUDE='$GHA_PING_PROVIDER_CLAUDE' && \
-             export CLAUDE_CODE_OAUTH_TOKEN='$GHA_CLAUDE_CODE_OAUTH_TOKEN' && \
              export MODEL='$GHA_MODEL' && \
              export CODEX_HOME='$GHA_CODEX_HOME' && \
              export ACCOUNT_STORAGE_PATH='$GHA_ACCOUNT_STORAGE_PATH' && \
@@ -127,12 +125,12 @@ jobs:
 
           if [ "${PING_PROVIDER_CODEX:-true}" = "true" ] && [ ! -f "state/accounts/codex-accounts.json" ]; then
             echo "WARNING: state/accounts/codex-accounts.json is missing."
-            echo "Skipping container deployment until manual Codex bootstrap is completed on the server."
+            echo "Skipping container deployment until account storage is imported or transferred to the server."
             echo "Bootstrap steps:"
             echo "  cd $PROJECT_DIR"
             echo "  cp .env.example .env"
             echo "  npm install"
-            echo "  npm run codex:accounts -- login --label main"
+            echo "  Follow the README login steps, then run npm run codex:import"
             echo "  docker compose up -d --build"
             exit 0
           fi
@@ -140,17 +138,16 @@ jobs:
           echo "Writing deployment environment file..."
           {
             echo "PING_PROVIDER_CODEX=${PING_PROVIDER_CODEX:-true}"
-            echo "PING_PROVIDER_CLAUDE=${PING_PROVIDER_CLAUDE:-false}"
-            echo "CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN:-}"
+            echo "PING_PROVIDER_CLAUDE=${PING_PROVIDER_CLAUDE:-true}"
             echo "MODEL=${MODEL:-claude-haiku-4-5-20251001}"
             echo "CODEX_HOME=${CODEX_HOME:-/app/state/codex-home}"
             echo "ACCOUNT_STORAGE_PATH=${ACCOUNT_STORAGE_PATH:-/app/state/accounts/codex-accounts.json}"
-            echo "CODEX_MODEL=${CODEX_MODEL:-gpt-5.4-mini}"
+            echo "CODEX_MODEL=${CODEX_MODEL:-gpt-6-luna}"
             echo "CODEX_ACCOUNT_SELECTION=${CODEX_ACCOUNT_SELECTION:-all}"
             echo "CODEX_ENABLE_AUTO_FALLBACK=${CODEX_ENABLE_AUTO_FALLBACK:-true}"
             echo "CODEX_FAILURE_COOLDOWN_MINUTES=${CODEX_FAILURE_COOLDOWN_MINUTES:-60}"
             echo "SCHEDULER_LOG_PATH=${SCHEDULER_LOG_PATH:-/app/state/logs/scheduler.log}"
-            echo "SCHEDULE_TIMES=${SCHEDULE_TIMES:-07:01}"
+            echo "SCHEDULE_TIMES=${SCHEDULE_TIMES:-15:00,20:01,01:02}"
             echo "TIMEZONE=${TIMEZONE:-Etc/GMT-5}"
             echo "MESSAGE_PROMPT=${MESSAGE_PROMPT:-}"
           } > .env

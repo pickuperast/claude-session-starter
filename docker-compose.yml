@@ -7,17 +7,16 @@ services:
       - .env
     environment:
       - PING_PROVIDER_CODEX=${PING_PROVIDER_CODEX:-true}
-      - PING_PROVIDER_CLAUDE=${PING_PROVIDER_CLAUDE:-false}
-      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN:-}
+      - PING_PROVIDER_CLAUDE=${PING_PROVIDER_CLAUDE:-true}
       - MODEL=${MODEL:-claude-haiku-4-5-20251001}
       - CODEX_HOME=${CODEX_HOME:-/app/state/codex-home}
       - ACCOUNT_STORAGE_PATH=${ACCOUNT_STORAGE_PATH:-/app/state/accounts/codex-accounts.json}
-      - CODEX_MODEL=${CODEX_MODEL:-gpt-5.4-mini}
+      - CODEX_MODEL=${CODEX_MODEL:-gpt-6-luna}
       - CODEX_ACCOUNT_SELECTION=${CODEX_ACCOUNT_SELECTION:-all}
       - CODEX_ENABLE_AUTO_FALLBACK=${CODEX_ENABLE_AUTO_FALLBACK:-true}
       - CODEX_FAILURE_COOLDOWN_MINUTES=${CODEX_FAILURE_COOLDOWN_MINUTES:-60}
       - SCHEDULER_LOG_PATH=${SCHEDULER_LOG_PATH:-/app/state/logs/scheduler.log}
-      - SCHEDULE_TIMES=${SCHEDULE_TIMES:-07:00,12:05,17:10}
+      - SCHEDULE_TIMES=${SCHEDULE_TIMES:-15:00,20:01,01:02}
       - TIMEZONE=${TIMEZONE:-Asia/Almaty}
       - MESSAGE_PROMPT_FILE=${MESSAGE_PROMPT_FILE:-/app/prompts/message-prompt.txt}
       - TZ=${TIMEZONE:-Asia/Almaty}

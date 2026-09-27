@@ -347,11 +347,11 @@ PING_PROVIDER_CODEX=true
 PING_PROVIDER_CLAUDE=false
 CODEX_HOME=./state/codex-home
 ACCOUNT_STORAGE_PATH=./state/accounts/codex-accounts.json
-CODEX_MODEL=gpt-5.4-mini
+CODEX_MODEL=gpt-6-luna
 CODEX_ACCOUNT_SELECTION=all
 CODEX_ENABLE_AUTO_FALLBACK=true
 MESSAGE_PROMPT="tell me a joke about programmers"
-SCHEDULE_TIMES=07:01
+SCHEDULE_TIMES=15:00,20:01,01:02
 TIMEZONE=Asia/Qyzylorda
 ```
 
