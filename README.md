@@ -58,7 +58,15 @@ Complete these steps on the machine holding your local logins, before starting t
 
 Claude login commands are documented in the [Claude Code CLI reference](https://code.claude.com/docs/en/cli-reference). If the scheduler runs on another machine, securely transfer the resulting `state/accounts/codex-accounts.json` there before starting it.
 
-Run `npm run codex:import` to import Codex accounts from `~/.codex/multi-auth/openai-codex-accounts.json` and the Claude login from `~/.claude/.credentials.json` into `ACCOUNT_STORAGE_PATH` (default `./state/accounts/codex-accounts.json`). To use other sources, run `npm run codex:import -- "C:/path/openai-codex-accounts.json" "C:/path/.credentials.json"`. Both source files must be valid; validation failures leave the destination unchanged. The importer maps tokens and the selected workspace ID into `auth.tokens`, converts timestamps to ISO dates, and preserves other stored accounts. Matching provider and account IDs are updated while keeping their existing labels and enabled flags. An empty destination inherits the source active account. The source files are unchanged. Missing ID tokens remain empty; the importer does not sign in or refresh tokens.
+Run the import command from the repository root:
+
+```bash
+npm run codex:import
+```
+
+This runs [scripts/import-codex-accounts.js](scripts/import-codex-accounts.js) and imports Codex accounts from `~/.codex/multi-auth/openai-codex-accounts.json` and the Claude login from `~/.claude/.credentials.json` into the file specified by `ACCOUNT_STORAGE_PATH` (default `./state/accounts/codex-accounts.json`). Both source files must exist and contain valid credentials.
+
+To use other sources, run `npm run codex:import -- "C:/path/openai-codex-accounts.json" "C:/path/.credentials.json"`. Both source files must be valid; validation failures leave the destination unchanged. The importer maps tokens and the selected workspace ID into `auth.tokens`, converts timestamps to ISO dates, and preserves other stored accounts. Matching provider and account IDs are updated while keeping their existing labels and enabled flags. An empty destination inherits the source active account. The source files are unchanged. When `idToken` is missing, the importer uses the account's access JWT for the CLI identity field, matching `codex-multi-auth`. Malformed JWT payloads are rejected before writing. The importer does not sign in or refresh tokens.
 
 To import a single login from `CODEX_HOME/auth.json`, use `npm run codex:accounts -- login --import-only --label main`.
 
@@ -132,6 +140,8 @@ npm test
 
 ## Docker
 
+The scheduler runs as `nodejs` with a writable home at `/home/nodejs`, including the Claude debug directory.
+
 The container mounts the local runtime state:
 
 - `./state/accounts`
@@ -172,3 +182,5 @@ The scheduled message prompt now comes from `./prompts/message-prompt.txt` on ev
 ## Deployment notes
 
 The GitHub Actions deploy workflow preserves `./state/**`. On a fresh server, import or securely transfer the account storage into the checked-out repository before starting the containerized scheduler.
+
+For agent-assisted checks of the deployed scheduler, use the `my-server-ssh` skill to connect to the configured server and follow [Remote Runtime Verification](AGENTS.md#remote-runtime-verification). Check container status, logs, and completed scheduled runs for the enabled providers to verify autonomous operation.

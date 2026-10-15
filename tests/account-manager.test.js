@@ -37,7 +37,6 @@ test('imports a new account and updates an existing matching account', async () 
   await fs.writeFile(
     authPath,
     JSON.stringify({
-      email: 'user@example.com',
       tokens: {
         account_id: 'acct-1',
         access_token: 'access-2',
@@ -51,6 +50,7 @@ test('imports a new account and updates an existing matching account', async () 
 
   assert.equal(secondImport.index, 0);
   assert.equal(secondImport.account.label, 'renamed');
+  assert.equal(secondImport.account.email, 'user@example.com');
   assert.equal(secondImport.account.accessToken, 'access-2');
 
   const storage = await loadAccountStorage(storagePath);

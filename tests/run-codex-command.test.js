@@ -37,6 +37,7 @@ test('buildThreadOptions keeps the working directory and repo check override', (
     skipGitRepoCheck: true,
     modelReasoningEffort: 'high'
   });
+  assert.equal(buildThreadOptions({ model: 'gpt-6-luna', taskMode: 'simple' }).modelReasoningEffort, 'low');
 });
 
 test('buildPrompt wraps hard tasks in a goal command', () => {
