@@ -22,6 +22,18 @@ export async function importCodexAccounts(sourcePath, storagePath = getAccountSt
         throw new Error(`Source account #${index} requires an account ID, access token and refresh token.`);
       }
     }
+    // Match codex-multi-auth's CLI fallback when it stores no separate ID token.
+    const idToken = item.idToken || item.accessToken;
+    try {
+      const parts = idToken.split('.');
+      const payload = JSON.parse(Buffer.from(parts[1] || '', 'base64url').toString('utf8'));
+      if (parts.length !== 3 || parts.some(part => !/^[A-Za-z0-9_-]+$/.test(part)) ||
+          !payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        throw new Error('Invalid JWT');
+      }
+    } catch {
+      throw new Error(`Source account #${index} requires a valid JWT ID token or access token.`);
+    }
     const account = createImportedAccount({
       label: item.accountLabel,
       source: 'codex-multi-auth-import',
@@ -33,7 +45,7 @@ export async function importCodexAccounts(sourcePath, storagePath = getAccountSt
           account_id: accountId,
           access_token: item.accessToken,
           refresh_token: item.refreshToken,
-          id_token: item.idToken || ''
+          id_token: idToken
         }
       }
     });

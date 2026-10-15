@@ -6,16 +6,20 @@ import path from 'node:path';
 import { AccountManager } from '../lib/accounts/account-manager.js';
 import { importCodexAccounts } from '../scripts/import-codex-accounts.js';
 
+const jwt = payload => `${Buffer.from('{"alg":"RS256"}').toString('base64url')}.${Buffer.from(JSON.stringify(payload)).toString('base64url')}.signature`;
+
 test('multi-auth import maps credentials, preserves accounts, and rejects invalid input without writes', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-import-test-'));
   const sourcePath = path.join(root, 'source.json');
   const storagePath = path.join(root, 'accounts', 'codex-accounts.json');
   const claudePath = path.join(root, 'credentials.json');
+  const accessToken = jwt({ exp: 2000000000, email: 'test@example.com' });
+  const idToken = jwt({ exp: 2000000000, email: 'work@example.com' });
   const source = {
     activeIndex: 1,
     accounts: [
-      { accountId: 'old-id', accountLabel: 'main', email: 'test@example.com', accessToken: 'access-1', refreshToken: 'refresh-1', expiresAt: 2000000000000, addedAt: 1700000000000, lastUsed: 1800000000000, coolingDownUntil: 1900000000000, workspaces: [{ id: 'workspace-1' }], currentWorkspaceIndex: 0 },
-      { accountId: 'account-2', accountLabel: 'work', accessToken: 'access-2', refreshToken: 'refresh-2', enabled: false }
+      { accountId: 'old-id', accountLabel: 'main', email: 'test@example.com', accessToken, refreshToken: 'refresh-1', expiresAt: 2000000000000, addedAt: 1700000000000, lastUsed: 1800000000000, coolingDownUntil: 1900000000000, workspaces: [{ id: 'workspace-1' }], currentWorkspaceIndex: 0 },
+      { accountId: 'account-2', accountLabel: 'work', accessToken: 'access-2', refreshToken: 'refresh-2', idToken, enabled: false }
     ]
   };
   try {
@@ -35,9 +39,10 @@ test('multi-auth import maps credentials, preserves accounts, and rejects invali
     const [account] = storage.accounts;
     assert.equal(account.id, 'workspace-1');
     assert.equal(account.email, 'test@example.com');
-    assert.equal(account.accessToken, 'access-1');
+    assert.equal(account.accessToken, accessToken);
     assert.equal(account.refreshToken, 'refresh-1');
-    assert.deepEqual(account.auth.tokens, { account_id: 'workspace-1', access_token: 'access-1', refresh_token: 'refresh-1', id_token: '' });
+    assert.deepEqual(account.auth.tokens, { account_id: 'workspace-1', access_token: accessToken, refresh_token: 'refresh-1', id_token: accessToken });
+    assert.equal(storage.accounts[1].auth.tokens.id_token, idToken);
     assert.equal(account.expiresAt, new Date(2000000000000).toISOString());
     assert.equal(account.createdAt, new Date(1700000000000).toISOString());
     assert.equal(account.lastUsed, new Date(1800000000000).toISOString());
@@ -48,13 +53,15 @@ test('multi-auth import maps credentials, preserves accounts, and rejects invali
     storage.accounts[0].enabled = false;
     storage.accounts.push({ ...account, id: 'unrelated' });
     await fs.writeFile(storagePath, JSON.stringify(storage));
-    source.accounts[0].accessToken = 'updated-access';
+    const updatedAccessToken = jwt({ exp: 2100000000, email: 'test@example.com' });
+    source.accounts[0].accessToken = updatedAccessToken;
     await fs.writeFile(sourcePath, JSON.stringify(source));
     await importCodexAccounts(sourcePath, storagePath, claudePath);
     const updated = JSON.parse(await fs.readFile(storagePath, 'utf8'));
     assert.equal(updated.accounts.length, 4);
-    assert.equal(updated.accounts[0].accessToken, 'updated-access');
-    assert.equal(updated.accounts[0].auth.tokens.access_token, 'updated-access');
+    assert.equal(updated.accounts[0].accessToken, updatedAccessToken);
+    assert.equal(updated.accounts[0].auth.tokens.access_token, updatedAccessToken);
+    assert.equal(updated.accounts[0].auth.tokens.id_token, updatedAccessToken);
     assert.equal(updated.accounts[0].label, 'local label');
     assert.equal(updated.accounts[0].enabled, false);
     assert.deepEqual(updated.accounts[3], storage.accounts[3]);
@@ -63,6 +70,19 @@ test('multi-auth import maps credentials, preserves accounts, and rejects invali
     await assert.rejects(fs.access(path.join(root, 'codex-home', 'auth.json')));
     await assert.rejects(manager.syncAccountToCodexHome(updated.accounts[2]), /Only Codex/);
     const before = await fs.readFile(storagePath, 'utf8');
+    for (const invalidToken of ['invalid-token', jwt(null), jwt([])]) {
+      source.accounts[0].idToken = invalidToken;
+      await fs.writeFile(sourcePath, JSON.stringify(source));
+      await assert.rejects(importCodexAccounts(sourcePath, storagePath, claudePath), /valid JWT/);
+      assert.equal(await fs.readFile(storagePath, 'utf8'), before);
+    }
+    delete source.accounts[0].idToken;
+    source.accounts[0].accessToken = 'invalid-access';
+    await fs.writeFile(sourcePath, JSON.stringify(source));
+    await assert.rejects(importCodexAccounts(sourcePath, storagePath, claudePath), /valid JWT/);
+    assert.equal(await fs.readFile(storagePath, 'utf8'), before);
+    source.accounts[0].accessToken = updatedAccessToken;
+    await fs.writeFile(sourcePath, JSON.stringify(source));
     await fs.writeFile(claudePath, JSON.stringify({ mcpOAuth: {} }));
     await assert.rejects(importCodexAccounts(sourcePath, storagePath, claudePath), /Claude credentials require/);
     assert.equal(await fs.readFile(storagePath, 'utf8'), before);

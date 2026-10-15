@@ -23,10 +23,11 @@ COPY prompts ./prompts
 
 # Create non-root user
 RUN addgroup --system nodejs && \
-    adduser --system --ingroup nodejs nodejs && \
-    mkdir -p /app/state/accounts /app/state/codex-home /app/state/logs && \
-    chown -R nodejs:nodejs /app
+    adduser --system --ingroup nodejs --home /home/nodejs nodejs && \
+    mkdir -p /home/nodejs/.claude/debug /app/state/accounts /app/state/codex-home /app/state/logs && \
+    chown -R nodejs:nodejs /app /home/nodejs
 
+ENV HOME=/home/nodejs
 USER nodejs
 
 # Start the scheduler

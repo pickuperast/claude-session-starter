@@ -42,3 +42,19 @@ Pull requests should describe the change, list verification commands, and call o
 ## Security & Configuration Tips
 
 Never commit `.env`, OAuth tokens, private keys, server IPs, or deployment credentials. Update `.env.example` and README documentation when adding configuration. Treat `CLAUDE_CODE_OAUTH_TOKEN` as a secret in local shells, Docker Compose, and GitHub Actions.
+
+## Remote Runtime Verification
+
+When asked to verify the deployed scheduler or investigate its autonomous operation, use the `my-server-ssh` skill to connect to the configured remote server. Read its `SKILL.md` before connecting and keep connection details in the skill, outside this repository.
+
+From the deployed project directory, run read-only checks:
+
+```bash
+docker compose ps scheduler
+docker compose logs --since 24h --tail 300 scheduler
+tail -n 200 state/logs/scheduler.log
+```
+
+Check container uptime and restart count, then compare the logged schedule and timezone with `Scheduled run triggered`, `Provider result`, and failure events. Confirm that scheduled runs complete for the enabled providers without manual requests. If the log window contains no scheduled run, report that autonomous execution is still unverified and inspect a wider window. A running container alone does not prove that scheduled requests succeed.
+
+Report the time window, observed scheduled runs, provider outcomes, and errors without exposing tokens or private prompt/response content. Do not trigger live requests, restart services, deploy, or edit remote files unless the user's request authorizes those actions; follow the skill's safety rules.
